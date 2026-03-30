@@ -50,6 +50,9 @@ final class TranscriptionViewModel: ObservableObject {
     @Published var floatingOverlayEnabled = false {
         didSet { saveSettings() }
     }
+    @Published var floatingOverlayClickThroughEnabled = false {
+        didSet { saveSettings() }
+    }
     @Published var floatingOverlayShowsOriginal = true {
         didSet {
             ensureFloatingOverlayTrackVisibility()
@@ -453,6 +456,7 @@ final class TranscriptionViewModel: ObservableObject {
         apiKey = defaults.string(forKey: SettingsKey.apiKey.rawValue) ?? ""
         translationTargetLanguage = SupportedLanguage(rawValue: defaults.string(forKey: SettingsKey.translationTargetLanguage.rawValue) ?? "") ?? .chinese
         floatingOverlayEnabled = defaults.bool(forKey: SettingsKey.floatingOverlayEnabled.rawValue)
+        floatingOverlayClickThroughEnabled = defaults.bool(forKey: SettingsKey.floatingOverlayClickThroughEnabled.rawValue)
         floatingOverlayShowsOriginal = defaults.object(forKey: SettingsKey.floatingOverlayShowsOriginal.rawValue) as? Bool ?? true
         floatingOverlayShowsTranslation = defaults.object(forKey: SettingsKey.floatingOverlayShowsTranslation.rawValue) as? Bool ?? true
         floatingOverlayOpacity = clampedFloatingOverlayOpacity(defaults.object(forKey: SettingsKey.floatingOverlayOpacity.rawValue) as? Double ?? 0.88)
@@ -476,6 +480,7 @@ final class TranscriptionViewModel: ObservableObject {
         defaults.set(apiKey, forKey: SettingsKey.apiKey.rawValue)
         defaults.set(translationTargetLanguage.rawValue, forKey: SettingsKey.translationTargetLanguage.rawValue)
         defaults.set(floatingOverlayEnabled, forKey: SettingsKey.floatingOverlayEnabled.rawValue)
+        defaults.set(floatingOverlayClickThroughEnabled, forKey: SettingsKey.floatingOverlayClickThroughEnabled.rawValue)
         defaults.set(floatingOverlayShowsOriginal, forKey: SettingsKey.floatingOverlayShowsOriginal.rawValue)
         defaults.set(floatingOverlayShowsTranslation, forKey: SettingsKey.floatingOverlayShowsTranslation.rawValue)
         defaults.set(clampedFloatingOverlayOpacity(floatingOverlayOpacity), forKey: SettingsKey.floatingOverlayOpacity.rawValue)
@@ -493,6 +498,7 @@ final class TranscriptionViewModel: ObservableObject {
         case apiKey = "subtitle.settings.apiKey"
         case translationTargetLanguage = "subtitle.settings.translationTargetLanguage"
         case floatingOverlayEnabled = "subtitle.settings.floatingOverlayEnabled"
+        case floatingOverlayClickThroughEnabled = "subtitle.settings.floatingOverlayClickThroughEnabled"
         case floatingOverlayShowsOriginal = "subtitle.settings.floatingOverlayShowsOriginal"
         case floatingOverlayShowsTranslation = "subtitle.settings.floatingOverlayShowsTranslation"
         case floatingOverlayOpacity = "subtitle.settings.floatingOverlayOpacity"

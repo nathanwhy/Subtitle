@@ -3,6 +3,7 @@ import SwiftUI
 struct ContentView: View {
     @StateObject private var viewModel = TranscriptionViewModel()
     @StateObject private var overlayController = FloatingSubtitleWindowController()
+    @StateObject private var hotKeyController = GlobalHotKeyController()
 
     var body: some View {
         ZStack {
@@ -42,9 +43,11 @@ struct ContentView: View {
         .task {
             await viewModel.load()
             overlayController.setVisible(viewModel.floatingOverlayEnabled, using: viewModel)
+            hotKeyController.bind(to: viewModel)
         }
         .onAppear {
             overlayController.bind(to: viewModel)
+            hotKeyController.bind(to: viewModel)
         }
         .onChange(of: viewModel.floatingOverlayEnabled) { isVisible in
             overlayController.setVisible(isVisible, using: viewModel)
@@ -434,11 +437,23 @@ struct ContentView: View {
             Toggle("Show Floating Overlay", isOn: $viewModel.floatingOverlayEnabled)
                 .toggleStyle(.switch)
 
+            Toggle("Click-Through Overlay", isOn: $viewModel.floatingOverlayClickThroughEnabled)
+                .toggleStyle(.switch)
+
             Toggle("Show Original Column", isOn: $viewModel.floatingOverlayShowsOriginal)
                 .toggleStyle(.switch)
 
             Toggle("Show Translation Column", isOn: $viewModel.floatingOverlayShowsTranslation)
                 .toggleStyle(.switch)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Global Hotkey")
+                    .font(.subheadline.weight(.semibold))
+
+                Text("\(GlobalHotKeyController.shortcutDescription) toggles the floating overlay from anywhere.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
 
             VStack(alignment: .leading, spacing: 8) {
                 HStack {

@@ -39,6 +39,13 @@ final class FloatingSubtitleWindowController: ObservableObject {
             }
             .store(in: &cancellables)
 
+        viewModel.$floatingOverlayClickThroughEnabled
+            .receive(on: RunLoop.main)
+            .sink { [weak self] isEnabled in
+                self?.panel?.ignoresMouseEvents = isEnabled
+            }
+            .store(in: &cancellables)
+
         Publishers.CombineLatest(viewModel.$floatingOverlayFontScale, viewModel.$floatingOverlayLineCount)
             .receive(on: RunLoop.main)
             .sink { [weak self] _, _ in
@@ -51,6 +58,7 @@ final class FloatingSubtitleWindowController: ObservableObject {
     private func present(using viewModel: TranscriptionViewModel) {
         let panel = makePanelIfNeeded()
         updateMinimumSize(using: viewModel)
+        panel.ignoresMouseEvents = viewModel.floatingOverlayClickThroughEnabled
         panel.contentViewController = NSHostingController(rootView: FloatingSubtitleOverlayView(viewModel: viewModel))
         panel.orderFrontRegardless()
     }
