@@ -71,6 +71,9 @@ final class TranscriptionViewModel: ObservableObject {
     @Published var floatingOverlayLineCount = 3 {
         didSet { saveSettings() }
     }
+    @Published var floatingOverlayLineWidth = 26 {
+        didSet { saveSettings() }
+    }
     @Published var currentTranscript = ""
     @Published var translatedTranscript = ""
     @Published var sessions: [TranscriptSession] = []
@@ -420,6 +423,10 @@ final class TranscriptionViewModel: ObservableObject {
         min(max(value, 1), 6)
     }
 
+    private func clampedFloatingOverlayLineWidth(_ value: Int) -> Int {
+        min(max(value, 12), 48)
+    }
+
     private func llmConfiguration() throws -> OpenAICompatibleConfiguration {
         let trimmedBaseURL = apiBaseURL.trimmingCharacters(in: .whitespacesAndNewlines)
         let trimmedAPIKey = apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -451,6 +458,7 @@ final class TranscriptionViewModel: ObservableObject {
         floatingOverlayOpacity = clampedFloatingOverlayOpacity(defaults.object(forKey: SettingsKey.floatingOverlayOpacity.rawValue) as? Double ?? 0.88)
         floatingOverlayFontScale = clampedFloatingOverlayFontScale(defaults.object(forKey: SettingsKey.floatingOverlayFontScale.rawValue) as? Double ?? 1.0)
         floatingOverlayLineCount = clampedFloatingOverlayLineCount(defaults.object(forKey: SettingsKey.floatingOverlayLineCount.rawValue) as? Int ?? 3)
+        floatingOverlayLineWidth = clampedFloatingOverlayLineWidth(defaults.object(forKey: SettingsKey.floatingOverlayLineWidth.rawValue) as? Int ?? 26)
         if translationTargetLanguage == selectedLanguage {
             translationTargetLanguage = SupportedLanguage.defaultTranslationTarget(excluding: selectedLanguage)
         }
@@ -473,6 +481,7 @@ final class TranscriptionViewModel: ObservableObject {
         defaults.set(clampedFloatingOverlayOpacity(floatingOverlayOpacity), forKey: SettingsKey.floatingOverlayOpacity.rawValue)
         defaults.set(clampedFloatingOverlayFontScale(floatingOverlayFontScale), forKey: SettingsKey.floatingOverlayFontScale.rawValue)
         defaults.set(clampedFloatingOverlayLineCount(floatingOverlayLineCount), forKey: SettingsKey.floatingOverlayLineCount.rawValue)
+        defaults.set(clampedFloatingOverlayLineWidth(floatingOverlayLineWidth), forKey: SettingsKey.floatingOverlayLineWidth.rawValue)
     }
 
     private enum SettingsKey: String {
@@ -489,5 +498,6 @@ final class TranscriptionViewModel: ObservableObject {
         case floatingOverlayOpacity = "subtitle.settings.floatingOverlayOpacity"
         case floatingOverlayFontScale = "subtitle.settings.floatingOverlayFontScale"
         case floatingOverlayLineCount = "subtitle.settings.floatingOverlayLineCount"
+        case floatingOverlayLineWidth = "subtitle.settings.floatingOverlayLineWidth"
     }
 }

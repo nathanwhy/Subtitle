@@ -160,65 +160,131 @@ struct FloatingSubtitleOverlayView: View {
         let rawLines = text
             .replacingOccurrences(of: "\r\n", with: "\n")
             .split(separator: "\n", omittingEmptySubsequences: false)
-            .flatMap { wrapLine(String($0), maxCharactersPerLine: estimatedCharactersPerLine) }
+            .flatMap { wrapLine(String($0), maxLineWidth: effectiveLineWidth) }
 
         let visibleLines = Array(rawLines.suffix(viewModel.floatingOverlayLineCount))
         return visibleLines.joined(separator: "\n")
     }
 
-    private var estimatedCharactersPerLine: Int {
-        let baseCharacters = viewModel.floatingOverlayShowsOriginal && viewModel.floatingOverlayShowsTranslation ? 24 : 48
-        return max(10, Int(Double(baseCharacters) / viewModel.floatingOverlayFontScale))
+    private var effectiveLineWidth: Double {
+        let singleColumnBonus = (viewModel.floatingOverlayShowsOriginal && viewModel.floatingOverlayShowsTranslation) ? 0.0 : 10.0
+        return max(8, (Double(viewModel.floatingOverlayLineWidth) + singleColumnBonus) / viewModel.floatingOverlayFontScale)
     }
 
-    private func wrapLine(_ line: String, maxCharactersPerLine: Int) -> [String] {
+    private func wrapLine(_ line: String, maxLineWidth: Double) -> [String] {
         let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmed.isEmpty == false else {
             return [""]
         }
 
-        if trimmed.contains(" ") {
-            var wrapped: [String] = []
+        let phrases = splitIntoPhrases(trimmed)
+        var wrapped: [String] = []
+        var current = ""
+
+        for phrase in phrases {
+            let normalizedPhrase = normalizeWhitespace(in: phrase)
+            guard normalizedPhrase.isEmpty == false else { continue }
+
+            let separator = needsSpaceBetween(current, normalizedPhrase) ? " " : ""
+            let candidate = current.isEmpty ? normalizedPhrase : current + separator + normalizedPhrase
+
+            if visualWidth(of: candidate) <= maxLineWidth {
+                current = candidate
+                continue
+            }
+
+            if current.isEmpty == false {
+                wrapped.append(current)
+            }
+
+            if visualWidth(of: normalizedPhrase) <= maxLineWidth {
+                current = normalizedPhrase
+            } else {
+                let pieces = wrapLongPhrase(normalizedPhrase, maxLineWidth: maxLineWidth)
+                wrapped.append(contentsOf: pieces.dropLast())
+                current = pieces.last ?? ""
+            }
+        }
+
+        if current.isEmpty == false {
+            wrapped.append(current)
+        }
+
+        return wrapped
+    }
+
+    private func splitIntoPhrases(_ text: String) -> [String] {
+        var phrases: [String] = []
+        var current = ""
+
+        for character in text {
+            current.append(character)
+            if strongBreakCharacters.contains(character) || softBreakCharacters.contains(character) {
+                let trimmed = current.trimmingCharacters(in: .whitespacesAndNewlines)
+                if trimmed.isEmpty == false {
+                    phrases.append(trimmed)
+                }
+                current = ""
+            }
+        }
+
+        let remainder = current.trimmingCharacters(in: .whitespacesAndNewlines)
+        if remainder.isEmpty == false {
+            phrases.append(remainder)
+        }
+
+        return phrases.isEmpty ? [text] : phrases
+    }
+
+    private func wrapLongPhrase(_ text: String, maxLineWidth: Double) -> [String] {
+        let words = text.split(whereSeparator: \.isWhitespace).map(String.init)
+        if words.count > 1 {
+            var lines: [String] = []
             var current = ""
 
-            for word in trimmed.split(whereSeparator: \.isWhitespace) {
-                let candidate = current.isEmpty ? String(word) : "\(current) \(word)"
-                if candidate.count <= maxCharactersPerLine {
+            for word in words {
+                let separator = current.isEmpty ? "" : " "
+                let candidate = current + separator + word
+                if visualWidth(of: candidate) <= maxLineWidth {
                     current = candidate
                 } else {
                     if current.isEmpty == false {
-                        wrapped.append(current)
+                        lines.append(current)
                     }
-                    if word.count <= maxCharactersPerLine {
-                        current = String(word)
+
+                    if visualWidth(of: word) <= maxLineWidth {
+                        current = word
                     } else {
-                        let chunks = chunkCharacters(in: String(word), chunkSize: maxCharactersPerLine)
-                        wrapped.append(contentsOf: chunks.dropLast())
+                        let chunks = chunkCharacters(in: word, maxLineWidth: maxLineWidth)
+                        lines.append(contentsOf: chunks.dropLast())
                         current = chunks.last ?? ""
                     }
                 }
             }
 
             if current.isEmpty == false {
-                wrapped.append(current)
+                lines.append(current)
             }
-            return wrapped
+
+            return lines
         }
 
-        return chunkCharacters(in: trimmed, chunkSize: maxCharactersPerLine)
+        return chunkCharacters(in: text, maxLineWidth: maxLineWidth)
     }
 
-    private func chunkCharacters(in text: String, chunkSize: Int) -> [String] {
-        guard chunkSize > 0 else { return [text] }
+    private func chunkCharacters(in text: String, maxLineWidth: Double) -> [String] {
+        guard maxLineWidth > 0 else { return [text] }
 
         var chunks: [String] = []
         var current = ""
 
         for character in text {
-            current.append(character)
-            if current.count >= chunkSize {
+            let candidate = current + String(character)
+            if current.isEmpty == false && visualWidth(of: candidate) > maxLineWidth {
                 chunks.append(current)
-                current = ""
+                current = String(character)
+            } else {
+                current = candidate
             }
         }
 
@@ -227,5 +293,72 @@ struct FloatingSubtitleOverlayView: View {
         }
 
         return chunks
+    }
+
+    private func normalizeWhitespace(in text: String) -> String {
+        text.split(whereSeparator: \.isWhitespace).joined(separator: " ")
+    }
+
+    private func needsSpaceBetween(_ lhs: String, _ rhs: String) -> Bool {
+        guard let lhsLast = lhs.last, let rhsFirst = rhs.first else {
+            return false
+        }
+        return lhsLast.isASCIIWordCharacter && rhsFirst.isASCIIWordCharacter
+    }
+
+    private func visualWidth(of text: String) -> Double {
+        text.reduce(into: 0) { width, character in
+            width += character.displayWidth
+        }
+    }
+
+    private var strongBreakCharacters: Set<Character> {
+        [".", "!", "?", ";", ":", "。", "！", "？", "；", "："]
+    }
+
+    private var softBreakCharacters: Set<Character> {
+        [",", "，", "、"]
+    }
+}
+
+private extension Character {
+    var isASCIIWordCharacter: Bool {
+        unicodeScalars.allSatisfy { scalar in
+            CharacterSet.alphanumerics.contains(scalar) || scalar == "_"
+        }
+    }
+
+    var displayWidth: Double {
+        if isWhitespace {
+            return 0.35
+        }
+
+        if isASCIIWordCharacter {
+            return isUppercaseASCII ? 0.72 : 0.62
+        }
+
+        if isCJKPunctuation {
+            return 0.78
+        }
+
+        if unicodeScalars.allSatisfy({ $0.properties.isIdeographic || $0.properties.isUnifiedIdeograph }) {
+            return 1.0
+        }
+
+        if unicodeScalars.allSatisfy(\.isASCII) {
+            return 0.52
+        }
+
+        return 1.0
+    }
+
+    private var isUppercaseASCII: Bool {
+        unicodeScalars.allSatisfy { scalar in
+            CharacterSet.uppercaseLetters.contains(scalar) && scalar.isASCII
+        }
+    }
+
+    private var isCJKPunctuation: Bool {
+        ["。", "，", "！", "？", "；", "：", "、", "（", "）", "「", "」", "『", "』", "《", "》"].contains(self)
     }
 }

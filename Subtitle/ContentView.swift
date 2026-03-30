@@ -468,6 +468,15 @@ struct ContentView: View {
                         .foregroundStyle(.secondary)
                 }
             }
+
+            Stepper(value: $viewModel.floatingOverlayLineWidth, in: 12 ... 48) {
+                HStack {
+                    Text("Line Width")
+                    Spacer()
+                    Text("\(viewModel.floatingOverlayLineWidth)")
+                        .foregroundStyle(.secondary)
+                }
+            }
         }
         .padding(22)
         .background(cardBackground)
