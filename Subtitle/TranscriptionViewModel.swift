@@ -47,6 +47,30 @@ final class TranscriptionViewModel: ObservableObject {
             saveSettings()
         }
     }
+    @Published var floatingOverlayEnabled = false {
+        didSet { saveSettings() }
+    }
+    @Published var floatingOverlayShowsOriginal = true {
+        didSet {
+            ensureFloatingOverlayTrackVisibility()
+            saveSettings()
+        }
+    }
+    @Published var floatingOverlayShowsTranslation = true {
+        didSet {
+            ensureFloatingOverlayTrackVisibility()
+            saveSettings()
+        }
+    }
+    @Published var floatingOverlayOpacity = 0.88 {
+        didSet { saveSettings() }
+    }
+    @Published var floatingOverlayFontScale = 1.0 {
+        didSet { saveSettings() }
+    }
+    @Published var floatingOverlayLineCount = 3 {
+        didSet { saveSettings() }
+    }
     @Published var currentTranscript = ""
     @Published var translatedTranscript = ""
     @Published var sessions: [TranscriptSession] = []
@@ -94,6 +118,10 @@ final class TranscriptionViewModel: ObservableObject {
 
     var translationTargetOptions: [SupportedLanguage] {
         SupportedLanguage.allCases.filter { $0 != selectedLanguage }
+    }
+
+    var overlayTranslationAvailable: Bool {
+        liveTranslationEnabled || translatedTranscript.isEmpty == false
     }
 
     func load() async {
@@ -374,6 +402,24 @@ final class TranscriptionViewModel: ObservableObject {
         }
     }
 
+    private func ensureFloatingOverlayTrackVisibility() {
+        if floatingOverlayShowsOriginal == false && floatingOverlayShowsTranslation == false {
+            floatingOverlayShowsOriginal = true
+        }
+    }
+
+    private func clampedFloatingOverlayOpacity(_ value: Double) -> Double {
+        min(max(value, 0.55), 1)
+    }
+
+    private func clampedFloatingOverlayFontScale(_ value: Double) -> Double {
+        min(max(value, 0.85), 1.7)
+    }
+
+    private func clampedFloatingOverlayLineCount(_ value: Int) -> Int {
+        min(max(value, 1), 6)
+    }
+
     private func llmConfiguration() throws -> OpenAICompatibleConfiguration {
         let trimmedBaseURL = apiBaseURL.trimmingCharacters(in: .whitespacesAndNewlines)
         let trimmedAPIKey = apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -399,9 +445,16 @@ final class TranscriptionViewModel: ObservableObject {
         apiModel = defaults.string(forKey: SettingsKey.apiModel.rawValue) ?? "gpt-4o-mini"
         apiKey = defaults.string(forKey: SettingsKey.apiKey.rawValue) ?? ""
         translationTargetLanguage = SupportedLanguage(rawValue: defaults.string(forKey: SettingsKey.translationTargetLanguage.rawValue) ?? "") ?? .chinese
+        floatingOverlayEnabled = defaults.bool(forKey: SettingsKey.floatingOverlayEnabled.rawValue)
+        floatingOverlayShowsOriginal = defaults.object(forKey: SettingsKey.floatingOverlayShowsOriginal.rawValue) as? Bool ?? true
+        floatingOverlayShowsTranslation = defaults.object(forKey: SettingsKey.floatingOverlayShowsTranslation.rawValue) as? Bool ?? true
+        floatingOverlayOpacity = clampedFloatingOverlayOpacity(defaults.object(forKey: SettingsKey.floatingOverlayOpacity.rawValue) as? Double ?? 0.88)
+        floatingOverlayFontScale = clampedFloatingOverlayFontScale(defaults.object(forKey: SettingsKey.floatingOverlayFontScale.rawValue) as? Double ?? 1.0)
+        floatingOverlayLineCount = clampedFloatingOverlayLineCount(defaults.object(forKey: SettingsKey.floatingOverlayLineCount.rawValue) as? Int ?? 3)
         if translationTargetLanguage == selectedLanguage {
             translationTargetLanguage = SupportedLanguage.defaultTranslationTarget(excluding: selectedLanguage)
         }
+        ensureFloatingOverlayTrackVisibility()
         isRestoringSettings = false
     }
 
@@ -414,6 +467,12 @@ final class TranscriptionViewModel: ObservableObject {
         defaults.set(apiModel, forKey: SettingsKey.apiModel.rawValue)
         defaults.set(apiKey, forKey: SettingsKey.apiKey.rawValue)
         defaults.set(translationTargetLanguage.rawValue, forKey: SettingsKey.translationTargetLanguage.rawValue)
+        defaults.set(floatingOverlayEnabled, forKey: SettingsKey.floatingOverlayEnabled.rawValue)
+        defaults.set(floatingOverlayShowsOriginal, forKey: SettingsKey.floatingOverlayShowsOriginal.rawValue)
+        defaults.set(floatingOverlayShowsTranslation, forKey: SettingsKey.floatingOverlayShowsTranslation.rawValue)
+        defaults.set(clampedFloatingOverlayOpacity(floatingOverlayOpacity), forKey: SettingsKey.floatingOverlayOpacity.rawValue)
+        defaults.set(clampedFloatingOverlayFontScale(floatingOverlayFontScale), forKey: SettingsKey.floatingOverlayFontScale.rawValue)
+        defaults.set(clampedFloatingOverlayLineCount(floatingOverlayLineCount), forKey: SettingsKey.floatingOverlayLineCount.rawValue)
     }
 
     private enum SettingsKey: String {
@@ -424,5 +483,11 @@ final class TranscriptionViewModel: ObservableObject {
         case apiModel = "subtitle.settings.apiModel"
         case apiKey = "subtitle.settings.apiKey"
         case translationTargetLanguage = "subtitle.settings.translationTargetLanguage"
+        case floatingOverlayEnabled = "subtitle.settings.floatingOverlayEnabled"
+        case floatingOverlayShowsOriginal = "subtitle.settings.floatingOverlayShowsOriginal"
+        case floatingOverlayShowsTranslation = "subtitle.settings.floatingOverlayShowsTranslation"
+        case floatingOverlayOpacity = "subtitle.settings.floatingOverlayOpacity"
+        case floatingOverlayFontScale = "subtitle.settings.floatingOverlayFontScale"
+        case floatingOverlayLineCount = "subtitle.settings.floatingOverlayLineCount"
     }
 }

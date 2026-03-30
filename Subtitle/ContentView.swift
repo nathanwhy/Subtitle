@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ContentView: View {
     @StateObject private var viewModel = TranscriptionViewModel()
+    @StateObject private var overlayController = FloatingSubtitleWindowController()
 
     var body: some View {
         ZStack {
@@ -23,6 +24,7 @@ struct ContentView: View {
                         VStack(alignment: .leading, spacing: 20) {
                             controlsCard
                             llmCard
+                            overlayCard
                         }
                         .frame(maxWidth: 340)
 
@@ -39,6 +41,13 @@ struct ContentView: View {
         .frame(minWidth: 1120, minHeight: 780)
         .task {
             await viewModel.load()
+            overlayController.setVisible(viewModel.floatingOverlayEnabled, using: viewModel)
+        }
+        .onAppear {
+            overlayController.bind(to: viewModel)
+        }
+        .onChange(of: viewModel.floatingOverlayEnabled) { isVisible in
+            overlayController.setVisible(isVisible, using: viewModel)
         }
         .alert("Transcription Error", isPresented: errorBinding) {
             Button("OK", role: .cancel) {
@@ -409,6 +418,60 @@ struct ContentView: View {
                     .foregroundStyle(.secondary)
             }
         }
+    }
+
+    private var overlayCard: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Floating Overlay")
+                    .font(.title3.weight(.semibold))
+
+                Text("Show a resizable always-on-top subtitle panel for original and translated text.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+
+            Toggle("Show Floating Overlay", isOn: $viewModel.floatingOverlayEnabled)
+                .toggleStyle(.switch)
+
+            Toggle("Show Original Column", isOn: $viewModel.floatingOverlayShowsOriginal)
+                .toggleStyle(.switch)
+
+            Toggle("Show Translation Column", isOn: $viewModel.floatingOverlayShowsTranslation)
+                .toggleStyle(.switch)
+
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text("Overlay Opacity")
+                    Spacer()
+                    Text("\(Int(viewModel.floatingOverlayOpacity * 100))%")
+                        .foregroundStyle(.secondary)
+                }
+                Slider(value: $viewModel.floatingOverlayOpacity, in: 0.55 ... 1)
+            }
+
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text("Text Scale")
+                    Spacer()
+                    Text(String(format: "%.2fx", viewModel.floatingOverlayFontScale))
+                        .foregroundStyle(.secondary)
+                }
+                Slider(value: $viewModel.floatingOverlayFontScale, in: 0.85 ... 1.7)
+            }
+
+            Stepper(value: $viewModel.floatingOverlayLineCount, in: 1 ... 6) {
+                HStack {
+                    Text("Subtitle Lines")
+                    Spacer()
+                    Text("\(viewModel.floatingOverlayLineCount)")
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+        .padding(22)
+        .background(cardBackground)
+        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
     }
 
     private func sessionMetaLine(for session: TranscriptSession) -> String {
